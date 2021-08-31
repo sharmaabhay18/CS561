@@ -1,0 +1,175 @@
+// Name => Abhay Sharma
+// CWID => 10459806
+
+Query 1
+
+with t1 as (
+select cust, prod, month, round(avg(quant)) as currentAvg
+from sales	
+group by cust, prod, month
+order by cust, prod,month
+), avgTable as (
+select X.cust,X.prod, X.month, Y.currentAvg as prevAvg, Z.currentAvg as followingAvg
+from t1 as X left join t1 as Y
+on X.cust = Y.cust
+and X.prod = Y.prod
+and X.month - 1 = Y.month 
+left join
+t1 as Z
+on X.cust = Z.cust
+and X.prod = Z.prod
+and X.month  = Z.month - 1
+),countTable as (
+select avgTable.cust, avgTable.prod, avgTable.month,count(sales.quant)
+from avgTable
+join sales
+on avgTable.cust = sales.cust
+and avgTable.prod = sales.prod
+and avgTable.month = sales.month 
+where sales.quant between avgTable.prevAvg and avgTable.followingAvg 
+or sales.quant between avgTable.followingAvg and avgTable.prevAvg
+group by avgTable.cust, avgTable.prod, avgTable.month
+)
+
+select t1.cust as customer, t1.prod as product, t1.month as month, countTable.count as SALES_COUNT_BETWEEN_AVGS
+from t1 left join countTable on t1.cust=countTable.cust and t1.prod=countTable.prod and t1.month=countTable.month
+order by t1.cust, t1.month, t1.prod
+
+-----------------------------------------------------------------------
+
+Query 2
+
+with t1 as (
+select cust, prod, month, round(avg(quant)) as currentAvg
+from sales	
+group by cust, prod, month
+order by cust, prod,month
+), avgTable as (
+select X.cust,X.prod, X.month, Y.currentAvg as prevAvg,X.currentAvg, Z.currentAvg as followingAvg
+from t1 as X left join t1 as Y
+on X.cust = Y.cust
+and X.prod = Y.prod
+and X.month - 1 = Y.month 
+left join
+t1 as Z
+on X.cust = Z.cust
+and X.prod = Z.prod
+and X.month  = Z.month - 1
+)
+
+select avgTable.cust as customer, avgTable.prod as product, avgTable.month, avgTable.prevAvg as BEFORE_AVG,
+avgTable.currentAvg as DURING_AVG, avgTable.followingAvg as AFTER_AVG
+from avgTable
+
+-----------------------------------------------------------------------
+
+Query 3
+
+with t1 as (
+select cust, prod, state, round(avg(quant)) as prodAvg
+from sales	
+group by cust, prod, state
+order by cust, prod, state
+), otherCustAvg as (
+select t1.prod, t1.state, round(avg(quant)) as custAvg
+from t1 left outer join sales
+on t1.prod = sales.prod
+and t1.state = sales.state
+and t1.cust != sales.cust
+group by  t1.prod, t1.state
+), otherProdAvg as (
+select t1.cust, t1.state, round(avg(quant)) as otherProductAvg
+from t1 left outer join sales
+on t1.prod != sales.prod
+and t1.state = sales.state
+and t1.cust = sales.cust
+group by  t1.cust, t1.state
+), otherStateAvg as (
+select t1.cust, t1.prod, round(avg(quant)) as stateAvg
+from t1 left outer join sales
+on t1.prod = sales.prod
+and t1.state != sales.state
+and t1.cust = sales.cust
+group by  t1.cust, t1.prod
+)
+
+select t1.cust as CUSTOMER, t1.prod as PRODUCT, t1.state, t1.prodAvg as PROD_AVG,
+otherCustAvg.custAvg as OTHER_CUST_AVG, otherProdAvg.otherProductAvg as OTHER_PROD_AVG,
+otherStateAvg.stateAvg as OTHER_STATE_AVG
+from t1 left join otherCustAvg
+on t1.prod = otherCustAvg.prod
+and t1.state = otherCustAvg.state
+left join otherProdAvg
+on t1.cust = otherProdAvg.cust
+and t1.state = otherProdAvg.state
+left join otherStateAvg
+on t1.cust = otherStateAvg.cust
+and t1.prod = otherStateAvg.prod
+
+
+-----------------------------------------------------------------------
+
+Query 4
+
+with q1 as (
+select * from sales
+where state = 'NJ'
+), q2 as (
+select distinct cust, quant
+from q1 as s
+where 
+        (
+            select count(*) 
+            from (
+				select distinct cust, quant from q1
+			) as  sub2
+            where sub2.cust = s.cust and
+                  sub2.quant >= s.quant
+        ) <= 3
+order by cust, quant desc		 
+)
+
+select q2.cust as CUSTOMER, q2.quant as QUANTITY, q1.prod as PRODUCT, q1.date
+from q2 left join q1
+on q2.cust = q1.cust
+and q2.quant = q1.quant
+order by customer, quantity desc
+
+
+-----------------------------------------------------------------------
+
+Query 5
+
+with t1 as (
+select prod, (count(*) + 1) / 2 as medianRow
+from sales
+group by prod
+), rankTable as (
+select s1.prod, s1.quant, (select count(*) from sales where quant<=s1.quant and prod = s1.prod) as quantRanking
+from sales as s1
+order by s1.prod, quantRanking
+)	
+
+select rankTable.prod as PRODUCT, min(rankTable.quant) as MEDIAN_QUANT
+from rankTable, t1 
+where rankTable.prod = t1.prod and rankTable.quantRanking >= t1.medianRow
+group by rankTable.prod
+order by rankTable.prod,  min(rankTable.quant)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

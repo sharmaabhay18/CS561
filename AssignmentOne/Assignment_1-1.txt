@@ -1,0 +1,222 @@
+// Name => Abhay Sharma
+// CWID => 10459806
+
+Query 1
+
+WITH stats AS (
+select cust CUSTOMER, min(quant) MIN_Q, max(quant) MAX_Q, round(avg(quant)) AVG_Q
+from sales
+group by cust
+), minProd AS (
+select stats.customer, stats.MIN_Q, sales.prod MIN_PROD, sales.date MIN_DATE, sales.state ST, 
+stats.MAX_Q, stats.AVG_Q
+from stats, sales
+where stats.min_q = sales.quant and stats.customer = sales.cust
+)
+
+select minProd.customer, minProd.MIN_Q, minProd.min_prod MIN_PROD, minProd.min_date MIN_DATE, minProd.st ST, 
+minProd.MAX_Q, sales.prod MAX_PROD, sales.date MAX_DATE, sales.state ST, minProd.AVG_Q
+from minProd, sales
+where minProd.MAX_Q = sales.quant and minProd.customer = sales.cust
+
+-----------------------------------------------------------------------
+
+Query 2
+
+With sub as (
+select S.year, S.month, S.day, sum(s.quant) quant
+from sales as S
+group by S.year, S.month, S.day
+order by  S.year, S.month, S.day
+),
+busiest as (
+select sub2.year, sub2.month, busy.day, sub2.busiestTotal from (
+select sub.year, sub.month, max(sub.quant) as busiestTotal
+from sub
+group by sub.year, sub.month
+) as sub2
+inner join sub as busy
+on busy.year = sub2.year
+and busy.month = sub2.month
+where busy.quant = sub2.busiestTotal
+),
+slowest as (
+select sub2.year, sub2.month, slow.day, sub2.slowestTotal
+from (
+select sub.year, sub.month, min(sub.quant) as slowestTotal
+from sub
+group by sub.year, sub.month
+) as sub2
+inner join sub as slow
+on slow.year = sub2.year
+and slow.month = sub2.month
+where slow.quant = sub2.slowestTotal
+)
+
+select busiest.year, busiest.month, busiest.day as BUSIEST_DAY, busiest.busiestTotal as BUSIEST_TOTAL_Q, slowest.day as SLOWEST_DAY, slowest.slowestTotal as SLOWEST_TOTAL_Q
+from busiest inner join slowest
+on busiest.month = slowest.month
+and busiest.year = slowest.year
+
+-----------------------------------------------------------------------
+
+Query 3 
+
+With sub as (
+select cust, prod, sum(quant) as total
+from sales
+group by cust, prod
+),
+mostFav as (
+select sub2.cust, sub.prod
+from (
+select sub.cust, max(sub.total) maximum
+from sub
+group by sub.cust
+) as sub2
+inner join sub
+on sub.cust = sub2.cust
+where sub.total = sub2.maximum
+),
+leastFav as (
+select sub2.cust, sub.prod
+from (
+select sub.cust, min(sub.total) minimum 
+from sub
+group by sub.cust
+) as sub2
+inner join sub
+on sub.cust = sub2.cust
+where sub.total = sub2.minimum	
+) 
+
+select mostFav.cust as CUSTOMER, mostFav.prod as MOST_FAV_PROD, leastFav.prod as LEAST_FAV_PROD
+from mostFav
+inner join leastFav
+on mostFav.cust = leastFav.cust
+
+-----------------------------------------------------------------------
+
+Query 4
+
+With spring as (
+select distinct S.cust, S.prod, Round(avg(S.quant)) SPRING_AVG
+from sales as S 
+inner join sales as U
+on S.cust = U.cust
+where S.month between 3 and 5
+group by S.cust, S.prod
+),
+summer as (
+select distinct spring.cust, spring.prod, spring.SPRING_AVG, Round(avg(sales.quant)) SUMMER_AVG
+from sales, spring
+where sales.month between 6 and 8
+and sales.cust = spring.cust
+and sales.prod = spring.prod
+group by spring.cust, spring.prod, spring.SPRING_AVG
+),
+fall as (
+select distinct summer.cust, summer.prod, summer.SPRING_AVG,summer.SUMMER_AVG, Round(avg(sales.quant)) FALL_AVG
+from sales, summer
+where sales.month between 9 and 11
+and sales.cust = summer.cust
+and sales.prod = summer.prod
+group by summer.cust, summer.prod, summer.SPRING_AVG, summer.SUMMER_AVG
+),
+winter as (
+select distinct fall.cust, fall.prod, fall.SPRING_AVG,fall.SUMMER_AVG,fall.FALL_AVG,  Round(avg(sales.quant)) WINTER_AVG
+from sales, fall
+where sales.month not between 3 and 11
+and sales.cust = fall.cust
+and sales.prod = fall.prod
+group by fall.cust, fall.prod, fall.SPRING_AVG, fall.SUMMER_AVG, fall.FALL_AVG
+)
+
+select winter.cust as CUSTOMER, winter.prod as PRODUCT, winter.SPRING_AVG, winter.SUMMER_AVG, winter.FALL_AVG, winter.WINTER_AVG, Round(avg(sales.quant)) AVERAGE, sum(sales.quant) TOTAL, count(sales.quant) as COUNT
+from winter, sales
+where sales.cust = winter.cust
+and sales.prod = winter.prod
+group by winter.cust, winter.prod, winter.SPRING_AVG, winter.SUMMER_AVG, winter.FALL_AVG, winter.WINTER_AVG
+
+-----------------------------------------------------------------------
+
+Query 5
+
+With sub as (
+select S.prod, max(S.quant) as maximum
+from sales as S 
+where S.month between 1 and 3
+group by S.prod
+),
+firstQtr as (
+select sub.prod, sub.maximum, sales.date
+from sub
+inner join sales
+on sales.prod = sub.prod	
+and sales.quant = sub.maximum	
+where sales.month between 1 and 3
+),
+sub2 as (
+select S.prod, max(S.quant) as maximum
+from sales as S 
+where S.month between 4 and 6
+group by S.prod
+),
+secondQtr as (
+select sub2.prod, sub2.maximum, sales.date
+from sub2
+inner join sales
+on sales.prod = sub2.prod	
+and sales.quant = sub2.maximum	
+where sales.month between 4 and 6
+),
+sub3 as (
+select S.prod, max(S.quant) as maximum
+from sales as S 
+where S.month between 7 and 9
+group by S.prod
+),
+thirdQtr as (
+select sub3.prod, sub3.maximum, sales.date
+from sub3
+inner join sales
+on sales.prod = sub3.prod	
+and sales.quant = sub3.maximum	
+where sales.month between 7 and 9
+),
+sub4 as (
+select S.prod, max(S.quant) as maximum
+from sales as S 
+where S.month between 10 and 12
+group by S.prod
+),
+fourthQtr as (
+select sub4.prod, sub4.maximum, sales.date
+from sub4
+inner join sales
+on sales.prod = sub4.prod	
+and sales.quant = sub4.maximum	
+where sales.month between 10 and 12
+)
+
+
+select firstQtr.prod as PRODUCT, firstQtr.maximum as Q1_MAX, firstQtr.date, secondQtr.maximum as Q2_MAX, secondQtr.date, thirdQtr.maximum as Q3_MAX, thirdQtr.date, fourthQtr.maximum as Q4_MAX, fourthQtr.date
+from firstQtr
+left join secondQtr
+on secondQtr.prod = firstQtr.prod
+left join thirdQtr
+on thirdQtr.prod = firstQtr.prod
+left join fourthQtr
+on fourthQtr.prod = firstQtr.prod
+
+
+
+
+
+
+
+
+
+
+
+
